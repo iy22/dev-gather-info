@@ -34,10 +34,19 @@ def _choose_ip_list_file():
     for f in ip_list_files:
         print ('[' + str(i) + '] ' + f)
         i += 1
-    try:
-        selected_file = ip_list_files[int(input())]
-    except:
-        return None
+    while True:
+        try:
+            if len(ip_list_files) == 1:
+                print('Only one file found ({0!s}). It will be chosen automatically.'.format(ip_list_files[0]))
+                selected_file = ip_list_files[0]
+                break
+            else:
+                print("Choose file with IP addresses(0-{0})".format(len(ip_list_files)-1))
+                selected_file = ip_list_files[int(input())]
+                break
+        except Exception as e:
+            print('ERROR', e)
+            continue
     return selected_file
 
 def _is_valid_IP(strng):
