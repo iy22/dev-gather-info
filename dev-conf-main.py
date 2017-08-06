@@ -30,24 +30,21 @@ def _get_ip_list_files(dir):
 def _choose_ip_list_file():
     ip_list_files = _get_ip_list_files(working_dir)
     if len(ip_list_files) == 0: print('No .csv or .txt files found in ' + working_dir + '\n' + 'Exiting.')
-    i = 0
-    for f in ip_list_files:
-        print ('[' + str(i) + '] ' + f)
-        i += 1
+    elif len(ip_list_files) == 1:
+        print('Only one file found ({0!s}). It will be chosen automatically.'.format(ip_list_files[0]))
+        selected_file = ip_list_files[0]
+        return selected_file
+    for i, f in enumerate(ip_list_files):
+        print('[{0!s}] {1}'.format(i, f))
+
     while True:
         try:
-            if len(ip_list_files) == 1:
-                print('Only one file found ({0!s}). It will be chosen automatically.'.format(ip_list_files[0]))
-                selected_file = ip_list_files[0]
-                break
-            else:
-                print("Choose file with IP addresses(0-{0})".format(len(ip_list_files)-1))
-                selected_file = ip_list_files[int(input())]
-                break
+            print("Choose file with IP addresses(0-{0})".format(len(ip_list_files)-1))
+            selected_file = ip_list_files[int(input())]
+            return selected_file
         except Exception as e:
             print('ERROR', e)
             continue
-    return selected_file
 
 def _is_valid_IP(strng):
     if re.search(
