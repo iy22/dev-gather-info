@@ -6,9 +6,12 @@ from queue import Queue
 
 def _lib_install(lib):
     try:
+        print('Library {0!s} not found. Trying to install'.format(lib))
         os.system('pip install ' + str(lib))
     except:
         pass
+    else:
+        print('Installed successfully')
 
 try:
     import netmiko
@@ -41,10 +44,11 @@ def _choose_ip_list_file():
         try:
             print("Choose file with IP addresses(0-{0})".format(len(ip_list_files)-1))
             selected_file = ip_list_files[int(input())]
-            return selected_file
         except Exception as e:
             print('ERROR', e)
             continue
+        else:
+            return selected_file
 
 def _is_valid_IP(strng):
     if re.search(
@@ -59,10 +63,10 @@ def _is_valid_IP(strng):
 def read_file_to_list(file):
     try:
         print('Reading ',file)
-        file_obj = open(file, "r")
-        ip_list = file_obj.readlines()
-        file_obj.close()
-        #	Strip EOL symbols
+        with open(file, "r") as file_obj:
+            ip_list = file_obj.readlines()
+
+        #Strip EOL symbols
         for i in range(0, len(ip_list)):
             ip_list[i]=ip_list[i].rstrip()
         print('Checking IP address validity')
@@ -73,12 +77,14 @@ def read_file_to_list(file):
                 del ip_list[i]
             else:
                 i += 1
-        print(ip_list)
-        return ip_list
+
     except Exception as e:
         print('Error opening hosts file')
         print(e)
         return('ERROR')
+    else:
+        print('Valid IP addresses list:\n',ip_list)
+        return ip_list
 
 def filter_by_conn(devices):
     # Filter devices list, leaving only devices that respond to connection over specified protocol
@@ -138,11 +144,12 @@ class Device:
             print('Trying to connect to ', self.mgmt_ip)
             netmiko.ConnectHandler(
                 ip=self.mgmt_ip, device_type=self.dev_type, username=self.username, password=self.password)
-            print('Success!')
-            return True
         except Exception as e:
             print('ERROR! ', str(e))
             return False
+        else:
+            print('Success!')
+            return True
 
     def get_info(self, commands):
         # Getting show output
