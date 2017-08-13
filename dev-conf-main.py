@@ -2,6 +2,8 @@ import os
 import re
 import datetime
 import threading
+import logging
+
 from queue import Queue
 
 def _lib_install(lib):
@@ -26,8 +28,7 @@ def _get_ip_list_files(dir):
         files.extend(filenames)
     for file in files:
         name, extension = os.path.splitext(file)
-        if ((extension == '.csv') | (extension == '.txt')):
-            final_files.append(file)
+        if ((extension == '.csv') | (extension == '.txt')): final_files.append(file)
     return final_files
 
 def _choose_ip_list_file():
@@ -44,25 +45,31 @@ def _choose_ip_list_file():
         try:
             print("Choose file with IP addresses(0-{0})".format(len(ip_list_files)-1))
             selected_file = ip_list_files[int(input())]
+            logger.info('File chosen: {0}'.format(str(selected_file)))
         except Exception as e:
             print('ERROR', e)
+            logger.error('Error while choosing the file: {0}'.format(e))
             continue
         else:
             return selected_file
 
 def _is_valid_IP(strng):
+    logger.info('Checking whether {0} is valid IP'.format(strng))
     if re.search(
             '^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.'
             '(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.'
             '(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.'
             '(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$',
-            strng) != None:
+            strng):
+        logger.info('OK')
         return True
+    logger0.warning('{0} is not a valid IPv4 address!')
     return False
 
 def read_file_to_list(file):
     try:
         print('Reading ',file)
+        logger.info('Reading the file')
         with open(file, "r") as file_obj:
             ip_list = file_obj.readlines()
 
@@ -81,9 +88,11 @@ def read_file_to_list(file):
     except Exception as e:
         print('Error opening hosts file')
         print(e)
+        logger.error('Error opening hosts file: {0}'.format(e))
         return('ERROR')
     else:
         print('Valid IP addresses list:\n',ip_list)
+        logger.error('Valid IP addresses list: {0}'.format(ip_list))
         return ip_list
 
 def filter_by_conn(devices):
@@ -103,7 +112,7 @@ def filter_by_conn(devices):
         protocol = 'telnet'
 
     print('Checking connections to devices over', protocol)
-
+    logger.info("Checking which devices of the list respond to {0}".format(protocol))
     for x in range(number_of_threads):
         filt_t = threading.Thread(target=filt_threader)
         filt_t.daemon = True
@@ -123,21 +132,41 @@ def threader():
 
 def action(device):
     print('Connecting to', device.mgmt_ip)
+    logger.info('Connecting to {0}'.format(device.mgmt_ip))
     print('Wiping output file')
+    logger.info('Wiping output file')
     device.wipe_output_file()
     print('Gathering info from ', device.mgmt_ip)
+    logger.info('Gathering info from {0}'.format(device.mgmt_ip))
     data_dict = device.get_info(['show run', 'show version'])
     print('Saving info to file')
+    logger.info('Saving info to file')
     device.save_info_to_file(data_dict)
 
 class Device:
     def __init__(self, mgmt_ip, dev_type, username, password, en_password):
-        self.mgmt_ip = mgmt_ip
-        self.dev_type = dev_type
-        self.username = username
-        self.password = password
-        self.en_password = en_password
-        self.output_file_name = ''
+        self._mgmt_ip = mgmt_ip
+        self._dev_type = dev_type
+        self._username = username
+        self._password = password
+        self._en_password = en_password
+        self._output_file_name = ''
+
+    @property
+    def mgmt_ip(self):
+        return self._mgmt_ip
+    @property
+    def dev_type(self):
+        return self._dev_type
+    @property
+    def username(self):
+        return self._username
+    @property
+    def password(self):
+        return self._password
+    @property
+    def en_password(self):
+        return self._en_password
 
     def check_connection(self):
         try:
@@ -155,12 +184,13 @@ class Device:
         # Getting show output
         # List of commands as input
         output = {}
-        connection = netmiko.ConnectHandler(
-            ip=self.mgmt_ip, device_type=self.dev_type, username=self.username, password=self.password, secret=self.en_password)
-        connection.enable()
-        for command in commands:
-            output[command] = connection.send_command(command)
-        return output
+        with netmiko.ConnectHandler(
+            ip=self.mgmt_ip, device_type=self.dev_type, username=self.username,
+                password=self.password, secret=self.en_password) as connection:
+            connection.enable()
+            for command in commands:
+                output[command] = connection.send_command(command)
+            return output
 
     def fetch_name(self):
         return self.get_info(['show run | inc hostname'])['show run | inc hostname'].split()[1]
@@ -177,6 +207,7 @@ class Device:
             self.output_file.writelines(data_dict[command])
             self.output_file.writelines('\n' + '='*75 + '\n'*3)
         self.output_file.close()
+        logging.info('Data saved to file {}'.format(self.output_file_name))
 
 #Initializing variables
 working_dir = os.getcwd()
@@ -186,12 +217,18 @@ username = 'test'
 password = 'cisco'
 enable_password = 'cisco'
 commands_list = ['show runn']
-working_ip_list_file = os.path.join(working_dir,_choose_ip_list_file())
-ip_addr_list = read_file_to_list(working_ip_list_file)
-
 #Create folder to save output
 output_path = os.path.join(working_dir,'results_'+datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 if not os.path.exists(output_path): os.makedirs(output_path)
+#Initialize logging
+logging.basicConfig(filename=os.path.join(output_path,'!EXECUTION_LOG.log'),
+                    level = logging.DEBUG)
+logger = logging.getLogger()
+logger.info('Started, variables initialized')
+#Choose IP list file
+logger.info('Asking user for IP List file')
+working_ip_list_file = os.path.join(working_dir,_choose_ip_list_file())
+ip_addr_list = read_file_to_list(working_ip_list_file)
 
 #Instantiating devices objects
 devices = [Device(ip_addr,common_devices_type, username, password, enable_password) for ip_addr in ip_addr_list]
