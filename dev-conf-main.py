@@ -63,7 +63,7 @@ def _is_valid_IP(strng):
             strng):
         logger.info('OK')
         return True
-    logger0.warning('{0} is not a valid IPv4 address!')
+    logger.warning('{0} is not a valid IPv4 address!')
     return False
 
 def read_file_to_list(file):
